@@ -1,83 +1,82 @@
 import os
-import json
 import openai
-from flask import Flask, request, abort
+from flask import Flask, request, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
-# 環境変数の読み込み
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-LINE_CHANNEL_ACCESS_TOKEN = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
-LINE_CHANNEL_SECRET = os.getenv('LINE_CHANNEL_SECRET')
-
-# デバッグ用ログ
-print(f"✅ [DEBUG] OpenAI API Key: {'Set' if OPENAI_API_KEY else 'Not Set'}")
-print(f"✅ [DEBUG] LINE Access Token: {'Set' if LINE_CHANNEL_ACCESS_TOKEN else 'Not Set'}")
-print(f"✅ [DEBUG] LINE Secret: {'Set' if LINE_CHANNEL_SECRET else 'Not Set'}")
-
-# Flask アプリの作成
+# Flask アプリのセットアップ
 app = Flask(__name__)
 
-# LINE Bot API の設定
+# 環境変数の取得
+LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
+LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
+# OpenAI API クライアントの設定
+openai.api_key = OPENAI_API_KEY
+
+# LINE Bot のセットアップ
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# OpenAI のクライアント設定
-client = openai.OpenAI(api_key=OPENAI_API_KEY)
+# 翻訳ロジック
+def translate_text(user_text):
+    """
+    入力が日本語ならシンハラ語へ
+    入力がシンハラ語なら日本語へ翻訳
+    """
+    prompt = f"""
+    あなたは優秀な翻訳家です。
+    入力が **日本語ならシンハラ語に翻訳** し、
+    入力が **シンハラ語なら日本語に翻訳** してください。
 
-# LINE Webhook のエンドポイント
-@app.route("/callback", methods=['POST'])
+    【例】
+    日本語: 「こんにちは」→ シンハラ語: 「සුභ උදෑසනක්」
+    シンハラ語: 「සුභ උදෑසනක්」→ 日本語: 「こんにちは」
+
+    【翻訳対象】 {user_text}
+    【翻訳結果】 
+    """
+
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",  # または "gpt-3.5-turbo"
+            messages=[{"role": "user", "content": prompt}]
+        )
+        translated_text = response["choices"][0]["message"]["content"].strip()
+        return translated_text
+    except Exception as e:
+        print(f"[ERROR] OpenAI API Request Failed: {e}")
+        return "翻訳に失敗しました。"
+
+# LINE Webhook
+@app.route("/callback", methods=["POST"])
 def callback():
-    # LINE からのリクエストを取得
-    signature = request.headers['X-Line-Signature']
+    signature = request.headers["X-Line-Signature"]
     body = request.get_data(as_text=True)
-    print(f"📥 [DEBUG] Received request: {body}")  # 受信リクエストを表示
 
-    # WebhookHandler に処理を渡す
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
-        print("❌ [ERROR] Invalid Signature")
-        abort(400)
+        return "Invalid signature", 400
 
-    return 'OK'
+    return "OK", 200
 
-# メッセージイベントのハンドリング
+# LINE メッセージイベントのハンドラー
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    user_message = event.message.text
-    print(f"📥 [DEBUG] User Message: {user_message}")
+    user_text = event.message.text.strip()
+    print(f"📥 [DEBUG] User Message: {user_text}")
 
-    # OpenAI に翻訳リクエストを送る
-    translated_text = get_openai_response(user_message)
+    # すべての入力を翻訳する
+    translated_text = translate_text(user_text)
 
-    # LINE に返信
-    if translated_text:
-        reply_message = TextSendMessage(text=translated_text)
-        line_bot_api.reply_message(event.reply_token, reply_message)
-        print(f"📤 [DEBUG] Sent reply: {translated_text}")
-    else:
-        print("❌ [ERROR] No response from OpenAI")
+    # 返信メッセージを送信
+    reply_message = TextSendMessage(text=translated_text)
+    line_bot_api.reply_message(event.reply_token, reply_message)
+    print(f"📤 [DEBUG] Sent reply: {translated_text}")
 
-# OpenAI API を呼び出す関数
-def get_openai_response(user_message):
-    try:
-        print(f"📤 [DEBUG] Sending request to OpenAI: {user_message}")
-
-        response = client.chat.completions.create(
-            model="gpt-4o",  # 必要に応じて `gpt-3.5-turbo` などに変更
-            messages=[{"role": "user", "content": user_message}]
-        )
-
-        openai_reply = response.choices[0].message.content
-        print(f"✅ [DEBUG] OpenAI Response: {openai_reply}")
-        return openai_reply
-
-    except Exception as e:
-        print(f"❌ [ERROR] OpenAI API Request Failed: {e}")
-        return "エラーが発生しました。"
-
-# Flask アプリの起動
+# アプリの起動
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000)
