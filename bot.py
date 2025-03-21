@@ -4,7 +4,7 @@ import logging
 from flask import Flask, request, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, Mention
 
 # 環境変数からLINE Botのアクセストークンとシークレットを取得
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
@@ -21,8 +21,8 @@ app = Flask(__name__)
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
 
-# Botの表示名（メンション用）
-BOT_DISPLAY_NAME = "@翻訳Bot GoodFlowMarket"  # ← Botの名前をここに設定 (LINE公式アカウントでの表示名)
+# BotのUser ID (LINE Developer Console で確認)
+BOT_USER_ID = os.getenv("LINE_BOT_USER_ID")  # ここにLINE BotのUser IDを環境変数として設定
 
 # ログ設定
 logging.basicConfig(level=logging.DEBUG)
@@ -40,7 +40,7 @@ def translate_message(text):
         )
         return response["choices"][0]["message"]["content"]
     except Exception as e:
-        logging.error(f"OpenAI API Request Failed: {e}")
+        logging.error(f"❌ [ERROR] OpenAI API Request Failed: {e}")
         return "翻訳に失敗しました"
 
 # Webhookエンドポイント
@@ -54,7 +54,7 @@ def callback():
     try:
         handler.handle(body, signature)
     except InvalidSignatureError:
-        logging.error("Invalid signature. Check your channel secret and access token.")
+        logging.error("❌ Invalid signature. Check your channel secret and access token.")
         return jsonify({"status": "error"}), 400
 
     return jsonify({"status": "ok"}), 200
@@ -69,14 +69,19 @@ def handle_message(event):
     # グループメッセージの場合
     if source_type == "group":
         logging.debug(f"📥 [DEBUG] User Message: {user_message} (from group)")
+
+        # メンションがあるか確認
+        if event.message.mention:
+            mentioned_users = [m.user_id for m in event.message.mention.mentionees]
+
+            # Botがメンションされたか確認
+            if BOT_USER_ID not in mentioned_users:
+                logging.debug("🚫 [DEBUG] Bot was not mentioned. Ignoring message.")
+                return
         
-        # Botへのメンションが含まれているかチェック
-        if f"@{BOT_DISPLAY_NAME}" in user_message:
-            # メンション部分を削除
-            user_message = user_message.replace(f"@{BOT_DISPLAY_NAME}", "").strip()
-        else:
-            # メンションがなければ何もしない
-            return
+        # メンション部分を削除
+        for mention in event.message.mention.mentionees:
+            user_message = user_message.replace(f"@{mention.user_id}", "").strip()
 
     # 翻訳を実行
     response_text = translate_message(user_message)
