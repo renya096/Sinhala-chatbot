@@ -14,7 +14,7 @@ LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # OpenAI API クライアントの設定
-openai.api_key = OPENAI_API_KEY
+client = openai.Client(api_key=OPENAI_API_KEY)
 
 # LINE Bot のセットアップ
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
@@ -27,24 +27,20 @@ def translate_text(user_text):
     入力がシンハラ語なら日本語へ翻訳
     """
     prompt = f"""
-    あなたは優秀な翻訳家です。
-    入力が **日本語ならシンハラ語に翻訳** し、
-    入力が **シンハラ語なら日本語に翻訳** してください。
+    あなたは翻訳AIです。
+    **日本語ならシンハラ語に翻訳** し、**シンハラ語なら日本語に翻訳** してください。
 
-    【例】
-    日本語: 「こんにちは」→ シンハラ語: 「සුභ උදෑසනක්」
-    シンハラ語: 「සුභ උදෑසනක්」→ 日本語: 「こんにちは」
-
-    【翻訳対象】 {user_text}
-    【翻訳結果】 
+    入力: {user_text}
+    翻訳:
     """
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # または "gpt-3.5-turbo"
-            messages=[{"role": "user", "content": prompt}]
+        response = client.chat.completions.create(
+            model="gpt-4o",  # もしくは "gpt-3.5-turbo"
+            messages=[{"role": "system", "content": "あなたは翻訳AIです。"},
+                      {"role": "user", "content": prompt}]
         )
-        translated_text = response["choices"][0]["message"]["content"].strip()
+        translated_text = response.choices[0].message.content.strip()
         return translated_text
     except Exception as e:
         print(f"[ERROR] OpenAI API Request Failed: {e}")
