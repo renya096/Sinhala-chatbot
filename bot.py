@@ -1,14 +1,14 @@
 from flask import Flask, request, abort
 import os
-from openai import OpenAI
+import openai
 from linebot.v3.messaging import MessagingApi, TextMessage
 from linebot.v3.webhook import WebhookHandler, MessageEvent
 from linebot.v3.exceptions import InvalidSignatureError
 
 app = Flask(__name__)
 
-# OpenAI APIクライアント作成
-client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
+# OpenAI APIクライアント作成（修正済み）
+client = openai.Client(api_key=os.getenv('OPENAI_API_KEY'))
 
 # LINE Bot API 設定
 line_bot_api = MessagingApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
