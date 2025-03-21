@@ -29,14 +29,14 @@ logging.basicConfig(level=logging.DEBUG)
 def translate_message(text):
     """ 日本語をシンハラ語へ、シンハラ語を日本語へ翻訳する関数 """
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
+        response = openai.chat.completions.create(
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "Translate Japanese to Sinhala and Sinhala to Japanese automatically."},
                 {"role": "user", "content": text}
             ]
         )
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     except Exception as e:
         logging.error(f"❌ [ERROR] OpenAI API Request Failed: {e}")
         return "翻訳に失敗しました"
@@ -63,14 +63,13 @@ def handle_message(event):
     """ メッセージイベントを処理する """
     user_message = event.message.text
     source_type = event.source.type
+    logging.debug(f"📥 [DEBUG] User Message: {user_message} (from {source_type})")
 
     # グループメッセージの場合
     if source_type == "group":
-        logging.debug(f"📥 [DEBUG] User Message: {user_message} (from group)")
-
         # メンションがあるか確認
         if hasattr(event.message, "mention") and event.message.mention:
-            mentioned_users = [m["userId"] for m in event.message.mention["mentionees"]]
+            mentioned_users = [m.userId for m in event.message.mention.mentionees]
 
             # Botがメンションされたか確認
             if BOT_USER_ID not in mentioned_users:
@@ -79,8 +78,8 @@ def handle_message(event):
         
         # メンション部分を削除（メンションがある場合）
         if hasattr(event.message, "mention") and event.message.mention:
-            for mention in event.message.mention["mentionees"]:
-                user_message = user_message.replace(f"@{mention['userId']}", "").strip()
+            for mention in event.message.mention.mentionees:
+                user_message = user_message.replace(f"@{mention.userId}", "").strip()
 
     # 翻訳を実行
     response_text = translate_message(user_message)
