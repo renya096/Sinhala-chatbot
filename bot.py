@@ -8,7 +8,10 @@ from linebot.v3.exceptions import InvalidSignatureError
 app = Flask(__name__)
 
 # OpenAI APIキーを設定
-openai.api_key = os.getenv('OPENAI_API_KEY')
+api_key = os.getenv('OPENAI_API_KEY')
+if not api_key:
+    print("❌ [ERROR] OPENAI_API_KEY is not set!")
+openai.api_key = api_key
 
 # LINE Bot API 設定
 line_bot_api = MessagingApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
