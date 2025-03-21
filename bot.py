@@ -4,7 +4,7 @@ import logging
 from flask import Flask, request, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, Mention
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
 # 環境変数からLINE Botのアクセストークンとシークレットを取得
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
@@ -68,19 +68,17 @@ def handle_message(event):
     if source_type == "group":
         logging.debug(f"📥 [DEBUG] User Message: {user_message} (from group)")
 
-        # メンションがあるか確認
-        mentioned_users = []
+        # メンションが含まれているか確認
         if hasattr(event.message, "mention") and event.message.mention:
-            mentioned_users = [m.user_id for m in event.message.mention.mentionees]
+            mentioned_users = [m["userId"] for m in event.message.mention["mentionees"]]
 
-        # Botがメンションされたか確認
-        if BOT_USER_ID not in mentioned_users:
-            logging.debug("🚫 [DEBUG] Bot was not mentioned. Ignoring message.")
-            return
+            # Botがメンションされていない場合は無視
+            if BOT_USER_ID not in mentioned_users:
+                logging.debug("🚫 [DEBUG] Bot was not mentioned. Ignoring message.")
+                return
         
         # メンション部分を削除
-        for mention in event.message.mention.mentionees:
-            user_message = user_message.replace(f"@{mention.user_id}", "").strip()
+        user_message = user_message.replace(f"@翻訳Bot", "").strip()
 
     # 翻訳を実行
     response_text = translate_message(user_message)
