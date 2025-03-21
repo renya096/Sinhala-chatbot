@@ -23,8 +23,8 @@ handler = WebhookHandler(LINE_CHANNEL_SECRET)
 # 翻訳ロジック
 def translate_text(user_text):
     """
-    入力が日本語ならシンハラ語へ
-    入力がシンハラ語なら日本語へ翻訳
+    日本語ならシンハラ語へ翻訳
+    シンハラ語なら日本語へ翻訳
     """
     prompt = f"""
     あなたは翻訳AIです。
@@ -36,7 +36,7 @@ def translate_text(user_text):
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o",  # もしくは "gpt-3.5-turbo"
+            model="gpt-4o",
             messages=[{"role": "system", "content": "あなたは翻訳AIです。"},
                       {"role": "user", "content": prompt}]
         )
@@ -63,9 +63,16 @@ def callback():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_text = event.message.text.strip()
-    print(f"📥 [DEBUG] User Message: {user_text}")
+    sender_type = event.source.type  # user, group, room のどれか
+    group_id = event.source.group_id if sender_type == "group" else None
 
-    # すべての入力を翻訳する
+    print(f"📥 [DEBUG] User Message: {user_text} (from {sender_type})")
+
+    # ボットがメンションされたときのみ反応（グループ対応）
+    if sender_type == "group" and f"@{bot_display_name}" not in user_text:
+        print("📤 [DEBUG] Ignored message (not mentioned)")
+        return  # グループチャットでは、ボットがメンションされたときのみ反応
+
     translated_text = translate_text(user_text)
 
     # 返信メッセージを送信
