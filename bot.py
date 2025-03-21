@@ -4,12 +4,13 @@ import logging
 from flask import Flask, request, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage, Mention
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
 # 環境変数からLINE Botのアクセストークンとシークレットを取得
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
 LINE_CHANNEL_SECRET = os.getenv("LINE_CHANNEL_SECRET")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+BOT_USER_ID = os.getenv("LINE_BOT_USER_ID")  # BotのUser ID（Uから始まる）
 
 # OpenAI APIキーを設定
 openai.api_key = OPENAI_API_KEY
@@ -20,9 +21,6 @@ app = Flask(__name__)
 # LINE Bot APIとWebhookHandlerをセットアップ
 line_bot_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 handler = WebhookHandler(LINE_CHANNEL_SECRET)
-
-# BotのUser ID (LINE Developer Console で確認)
-BOT_USER_ID = os.getenv("LINE_BOT_USER_ID")  # ここにLINE BotのUser IDを環境変数として設定
 
 # ログ設定
 logging.basicConfig(level=logging.DEBUG)
@@ -71,17 +69,18 @@ def handle_message(event):
         logging.debug(f"📥 [DEBUG] User Message: {user_message} (from group)")
 
         # メンションがあるか確認
-        if event.message.mention:
-            mentioned_users = [m.user_id for m in event.message.mention.mentionees]
+        if hasattr(event.message, "mention") and event.message.mention:
+            mentioned_users = [m["userId"] for m in event.message.mention["mentionees"]]
 
             # Botがメンションされたか確認
             if BOT_USER_ID not in mentioned_users:
                 logging.debug("🚫 [DEBUG] Bot was not mentioned. Ignoring message.")
                 return
         
-        # メンション部分を削除
-        for mention in event.message.mention.mentionees:
-            user_message = user_message.replace(f"@{mention.user_id}", "").strip()
+        # メンション部分を削除（メンションがある場合）
+        if hasattr(event.message, "mention") and event.message.mention:
+            for mention in event.message.mention["mentionees"]:
+                user_message = user_message.replace(f"@{mention['userId']}", "").strip()
 
     # 翻訳を実行
     response_text = translate_message(user_message)
