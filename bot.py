@@ -13,7 +13,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 BOT_USER_ID = os.getenv("LINE_BOT_USER_ID")  # BotのUser ID（Uから始まる）
 
 # OpenAI APIキーを設定
-openai.api_key = OPENAI_API_KEY
+client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
 # Flaskアプリを作成
 app = Flask(__name__)
@@ -29,14 +29,14 @@ logging.basicConfig(level=logging.DEBUG)
 def translate_message(text):
     """ 日本語をシンハラ語へ、シンハラ語を日本語へ翻訳する関数 """
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
+        response = client.chat.completions.create(
+            model="gpt-4o",  # 最新のGPTモデル
             messages=[
                 {"role": "system", "content": "Translate Japanese to Sinhala and Sinhala to Japanese automatically."},
                 {"role": "user", "content": text}
             ]
         )
-        return response["choices"][0]["message"]["content"]
+        return response.choices[0].message.content
     except Exception as e:
         logging.error(f"❌ [ERROR] OpenAI API Request Failed: {e}")
         return "翻訳に失敗しました"
