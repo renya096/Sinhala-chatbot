@@ -68,20 +68,20 @@ def handle_message(event):
     # グループメッセージの場合
     if source_type == "group":
         # メンションがあるか確認
+        mentioned_users = []
         if hasattr(event.message, "mention") and event.message.mention:
-            mentioned_users = [m.userId for m in event.message.mention.mentionees]
+            mentioned_users = [m.user_id for m in event.message.mention.mentionees]
 
-            # Botがメンションされたか確認
-            if BOT_USER_ID not in mentioned_users:
-                logging.debug("🚫 [DEBUG] Bot was not mentioned. Ignoring message.")
-                return
-        
-        # メンション部分を削除（メンションがある場合）
-        if hasattr(event.message, "mention") and event.message.mention:
-            for mention in event.message.mention.mentionees:
-                user_message = user_message.replace(f"@{mention.userId}", "").strip()
+        # Botがメンションされていない場合は無視
+        if BOT_USER_ID not in mentioned_users:
+            logging.debug("🚫 [DEBUG] Bot was not mentioned. Ignoring message.")
+            return
 
-    # 翻訳を実行
+        # メンション部分を削除
+        for mention in event.message.mention.mentionees:
+            user_message = user_message.replace(f"@{mention.user_id}", "").strip()
+
+    # 個人メッセージの場合はそのまま翻訳
     response_text = translate_message(user_message)
     logging.debug(f"📤 [DEBUG] Sent reply: {response_text}")
 
