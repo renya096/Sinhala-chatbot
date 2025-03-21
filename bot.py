@@ -4,7 +4,7 @@ import logging
 from flask import Flask, request, jsonify
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, Mention
 
 # 環境変数からLINE Botのアクセストークンとシークレットを取得
 LINE_CHANNEL_ACCESS_TOKEN = os.getenv("LINE_CHANNEL_ACCESS_TOKEN")
@@ -29,14 +29,14 @@ logging.basicConfig(level=logging.DEBUG)
 def translate_message(text):
     """ 日本語をシンハラ語へ、シンハラ語を日本語へ翻訳する関数 """
     try:
-        response = openai.chat.completions.create(
-            model="gpt-4o",
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "Translate Japanese to Sinhala and Sinhala to Japanese automatically."},
                 {"role": "user", "content": text}
             ]
         )
-        return response.choices[0].message.content
+        return response["choices"][0]["message"]["content"]
     except Exception as e:
         logging.error(f"❌ [ERROR] OpenAI API Request Failed: {e}")
         return "翻訳に失敗しました"
@@ -63,25 +63,26 @@ def handle_message(event):
     """ メッセージイベントを処理する """
     user_message = event.message.text
     source_type = event.source.type
-    logging.debug(f"📥 [DEBUG] User Message: {user_message} (from {source_type})")
 
     # グループメッセージの場合
     if source_type == "group":
+        logging.debug(f"📥 [DEBUG] User Message: {user_message} (from group)")
+
         # メンションがあるか確認
         mentioned_users = []
         if hasattr(event.message, "mention") and event.message.mention:
             mentioned_users = [m.user_id for m in event.message.mention.mentionees]
 
-        # Botがメンションされていない場合は無視
+        # Botがメンションされたか確認
         if BOT_USER_ID not in mentioned_users:
             logging.debug("🚫 [DEBUG] Bot was not mentioned. Ignoring message.")
             return
-
+        
         # メンション部分を削除
         for mention in event.message.mention.mentionees:
             user_message = user_message.replace(f"@{mention.user_id}", "").strip()
 
-    # 個人メッセージの場合はそのまま翻訳
+    # 翻訳を実行
     response_text = translate_message(user_message)
     logging.debug(f"📤 [DEBUG] Sent reply: {response_text}")
 
