@@ -19,16 +19,16 @@ def callback():
     signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
 
-    print("📥 [DEBUG] Received request:", body)  # 🔍 受信したリクエストをログ出力
+    print("📥 [DEBUG] Received request:", body)  # 🔍 受信リクエストをログ出力
 
     try:
         handler.handle(body, signature)
-        print("✅ [DEBUG] handler.handle() successfully executed!")  # 🔍 正常処理
+        print("✅ [DEBUG] handler.handle() successfully executed!")  # 🔍 Webhook 成功
     except InvalidSignatureError:
-        print("❌ [ERROR] Invalid Signature Error")  # 🔍 エラー出力
+        print("❌ [ERROR] Invalid Signature Error")  # 🔍 シグネチャエラー
         abort(400)
     except Exception as e:
-        print("❌ [ERROR] Unexpected error in callback():", str(e))  # 🔍 エラー詳細出力
+        print("❌ [ERROR] Unexpected error in callback():", str(e))  # 🔍 その他のエラー
         abort(500)
 
     return 'OK'
@@ -44,40 +44,51 @@ def handle_message(event):
             original_text = user_message.replace("翻訳：", "").strip()
             print("🔄 [DEBUG] Translating:", original_text)  # 🔍 翻訳するテキストをログ出力
 
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "日本語をシンハラ語に翻訳してください。"},
-                    {"role": "user", "content": original_text}
-                ],
-                temperature=0.2,
-            )
-
-            reply = response.choices[0].message.content.strip()
-            print("✅ [DEBUG] Translation response:", reply)  # 🔍 翻訳結果をログ出力
+            # OpenAI API にリクエスト送信
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "日本語をシンハラ語に翻訳してください。"},
+                        {"role": "user", "content": original_text}
+                    ],
+                    temperature=0.2,
+                )
+                reply = response.choices[0].message.content.strip()
+                print("✅ [DEBUG] Translation response:", reply)  # 🔍 翻訳結果をログ出力
+            except Exception as e:
+                print("❌ [ERROR] OpenAI Translation Error:", str(e))
+                reply = "翻訳に失敗しました。"
 
         # それ以外のメッセージ → シンハラ語で返信
         else:
             print("🗣️ [DEBUG] AI response request for:", user_message)  # 🔍 AI応答リクエスト
 
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "シンハラ語で答えてください。"},
-                    {"role": "user", "content": user_message}
-                ],
-                temperature=0.5,
-            )
-
-            reply = response.choices[0].message.content.strip()
-            print("✅ [DEBUG] AI response:", reply)  # 🔍 AIの応答をログ出力
+            # OpenAI API にリクエスト送信
+            try:
+                response = openai.ChatCompletion.create(
+                    model="gpt-3.5-turbo",
+                    messages=[
+                        {"role": "system", "content": "シンハラ語で答えてください。"},
+                        {"role": "user", "content": user_message}
+                    ],
+                    temperature=0.5,
+                )
+                reply = response.choices[0].message.content.strip()
+                print("✅ [DEBUG] AI response:", reply)  # 🔍 AIの応答をログ出力
+            except Exception as e:
+                print("❌ [ERROR] OpenAI Response Error:", str(e))
+                reply = "応答に失敗しました。"
 
         # LINE に返信を送信
-        line_bot_api.reply_message(
-            event.reply_token,
-            [TextMessage(text=reply)]
-        )
-        print("📤 [DEBUG] Reply sent successfully!")  # 🔍 返信成功のログ
+        try:
+            line_bot_api.reply_message(
+                event.reply_token,
+                [TextMessage(text=reply)]
+            )
+            print("📤 [DEBUG] Reply sent successfully!")  # 🔍 返信成功のログ
+        except Exception as e:
+            print("❌ [ERROR] LINE Reply Error:", str(e))
 
     except Exception as e:
         print("❌ [ERROR] Unexpected error in handle_message():", str(e))  # 🔍 エラーログ
