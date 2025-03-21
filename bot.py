@@ -1,11 +1,9 @@
 from flask import Flask, request, abort
 import os
 from openai import OpenAI
-from linebot.v3.messaging import MessagingApi
-from linebot.v3.webhook import WebhookHandler
+from linebot.v3.messaging import MessagingApi, TextMessage
+from linebot.v3.webhook import WebhookHandler, MessageEvent
 from linebot.v3.exceptions import InvalidSignatureError
-from linebot.v3.webhook import MessageEvent
-from linebot.v3.messaging import TextMessageContent, TextMessage
 
 app = Flask(__name__)
 
@@ -28,7 +26,7 @@ def callback():
 
     return 'OK'
 
-@handler.add(MessageEvent, message=TextMessageContent)
+@handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     user_message = event.message.text
 
