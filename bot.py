@@ -7,13 +7,15 @@ from linebot.v3.exceptions import InvalidSignatureError
 
 app = Flask(__name__)
 
-# OpenAI APIキーを設定
+# 環境変数のチェック
 api_key = os.getenv('OPENAI_API_KEY')
 if not api_key:
     print("❌ [ERROR] OPENAI_API_KEY is not set!")
+else:
+    print("✅ [DEBUG] OPENAI_API_KEY is set.")
 openai.api_key = api_key
 
-# LINE Bot API 設定
+# LINE API 設定
 line_bot_api = MessagingApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
 handler = WebhookHandler(os.getenv('LINE_CHANNEL_SECRET'))
 
@@ -22,16 +24,16 @@ def callback():
     signature = request.headers['X-Line-Signature']
     body = request.get_data(as_text=True)
 
-    print("📥 [DEBUG] Received request:", body)  # 🔍 受信リクエストをログ出力
+    print("📥 [DEBUG] Received request:", body)  # 受信リクエストのログ
 
     try:
         handler.handle(body, signature)
-        print("✅ [DEBUG] handler.handle() successfully executed!")  # 🔍 Webhook 成功
+        print("✅ [DEBUG] handler.handle() successfully executed!")
     except InvalidSignatureError:
-        print("❌ [ERROR] Invalid Signature Error")  # 🔍 シグネチャエラー
+        print("❌ [ERROR] Invalid Signature Error")
         abort(400)
     except Exception as e:
-        print("❌ [ERROR] Unexpected error in callback():", str(e))  # 🔍 その他のエラー
+        print("❌ [ERROR] Unexpected error in callback():", str(e))
         abort(500)
 
     return 'OK'
@@ -40,14 +42,13 @@ def callback():
 def handle_message(event):
     try:
         user_message = event.message.text
-        print("📩 [DEBUG] Received message:", user_message)  # 🔍 受信メッセージをログ出力
+        print("📩 [DEBUG] Received message:", user_message)  # 受信メッセージのログ
 
-        # メッセージが「翻訳：」で始まる場合 → 日本語をシンハラ語に翻訳
         if user_message.startswith("翻訳："):
             original_text = user_message.replace("翻訳：", "").strip()
-            print("🔄 [DEBUG] Translating:", original_text)  # 🔍 翻訳するテキストをログ出力
+            print("🔄 [DEBUG] Translating:", original_text)  # 翻訳リクエストのログ
 
-            # OpenAI API にリクエスト送信
+            # OpenAI API へ翻訳リクエスト
             try:
                 response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
@@ -58,16 +59,15 @@ def handle_message(event):
                     temperature=0.2,
                 )
                 reply = response.choices[0].message.content.strip()
-                print("✅ [DEBUG] Translation response:", reply)  # 🔍 翻訳結果をログ出力
+                print("✅ [DEBUG] Translation response:", reply)  # OpenAI の翻訳結果
             except Exception as e:
                 print("❌ [ERROR] OpenAI Translation Error:", str(e))
                 reply = "翻訳に失敗しました。"
 
-        # それ以外のメッセージ → シンハラ語で返信
         else:
-            print("🗣️ [DEBUG] AI response request for:", user_message)  # 🔍 AI応答リクエスト
+            print("🗣️ [DEBUG] AI response request for:", user_message)
 
-            # OpenAI API にリクエスト送信
+            # OpenAI API へチャットリクエスト
             try:
                 response = openai.ChatCompletion.create(
                     model="gpt-3.5-turbo",
@@ -78,7 +78,7 @@ def handle_message(event):
                     temperature=0.5,
                 )
                 reply = response.choices[0].message.content.strip()
-                print("✅ [DEBUG] AI response:", reply)  # 🔍 AIの応答をログ出力
+                print("✅ [DEBUG] AI response:", reply)
             except Exception as e:
                 print("❌ [ERROR] OpenAI Response Error:", str(e))
                 reply = "応答に失敗しました。"
@@ -89,9 +89,9 @@ def handle_message(event):
                 event.reply_token,
                 [TextMessage(text=reply)]
             )
-            print("📤 [DEBUG] Reply sent successfully!")  # 🔍 返信成功のログ
+            print("📤 [DEBUG] Reply sent successfully!")
         except Exception as e:
             print("❌ [ERROR] LINE Reply Error:", str(e))
 
     except Exception as e:
-        print("❌ [ERROR] Unexpected error in handle_message():", str(e))  # 🔍 エラーログ
+        print("❌ [ERROR] Unexpected error in handle_message():", str(e))
