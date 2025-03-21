@@ -58,7 +58,7 @@ def handle_message(event):
                     ],
                     temperature=0.2,
                 )
-                reply = response.choices[0].message.content.strip()
+                reply = response["choices"][0]["message"]["content"].strip()
                 print("✅ [DEBUG] Translation response:", reply)  # OpenAI の翻訳結果
             except Exception as e:
                 print("❌ [ERROR] OpenAI Translation Error:", str(e))
@@ -77,7 +77,7 @@ def handle_message(event):
                     ],
                     temperature=0.5,
                 )
-                reply = response.choices[0].message.content.strip()
+                reply = response["choices"][0]["message"]["content"].strip()
                 print("✅ [DEBUG] AI response:", reply)
             except Exception as e:
                 print("❌ [ERROR] OpenAI Response Error:", str(e))
