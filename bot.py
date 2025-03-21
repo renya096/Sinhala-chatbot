@@ -7,8 +7,8 @@ from linebot.v3.exceptions import InvalidSignatureError
 
 app = Flask(__name__)
 
-# OpenAI APIクライアント作成（修正済み）
-client = openai.Client(api_key=os.getenv('OPENAI_API_KEY'))
+# OpenAI APIキーを設定（修正済み）
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # LINE Bot API 設定
 line_bot_api = MessagingApi(os.getenv('LINE_CHANNEL_ACCESS_TOKEN'))
@@ -34,7 +34,7 @@ def handle_message(event):
     if user_message.startswith("翻訳："):
         original_text = user_message.replace("翻訳：", "").strip()
 
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "日本語をシンハラ語に翻訳してください。"},
@@ -47,7 +47,7 @@ def handle_message(event):
 
     # それ以外のメッセージ → シンハラ語で返信
     else:
-        response = client.chat.completions.create(
+        response = openai.ChatCompletion.create(
             model="gpt-3.5-turbo",
             messages=[
                 {"role": "system", "content": "シンハラ語で答えてください。"},
